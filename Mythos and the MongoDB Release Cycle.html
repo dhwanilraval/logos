@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>CVE Density Inside MongoDB Patches</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f3f7fa;
+      --paper: #ffffff;
+      --ink: #102433;
+      --muted: #526a78;
+      --line: #cdd9df;
+      --line-strong: #9fb0b9;
+      --navy: #071d2b;
+      --navy-2: #0c2c3d;
+      --green: #19aa76;
+      --green-2: #0e7857;
+      --green-soft: #dff5eb;
+      --blue: #2368ad;
+      --blue-soft: #e4f0fb;
+      --amber: #d47a16;
+      --amber-soft: #fff0d9;
+      --red: #c13f38;
+      --red-soft: #fee8e6;
+      --shadow: 0 16px 46px rgba(8, 29, 43, .10);
+      --radius: 18px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #07141d;
+        --paper: #0d202c;
+        --ink: #edf5f6;
+        --muted: #adc1c8;
+        --line: #29404c;
+        --line-strong: #4a626d;
+        --navy: #06131b;
+        --navy-2: #0c2b39;
+        --green: #36c996;
+        --green-2: #7bdcb9;
+        --green-soft: #103a30;
+        --blue: #66a8e6;
+        --blue-soft: #102f49;
+        --amber: #f0ab55;
+        --amber-soft: #3b2b16;
+        --red: #ef7e75;
+        --red-soft: #3e211f;
+        --shadow: 0 18px 48px rgba(0,0,0,.28);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.6 "IBM Plex Sans", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--blue); text-underline-offset: 3px; }
+    button, summary { font: inherit; }
+    .hero {
+      color: #f4fbfc;
+      background:
+        linear-gradient(120deg, rgba(25,170,118,.10), transparent 42%),
+        linear-gradient(180deg, var(--navy), #0a2635);
+      padding: 72px max(24px, calc((100vw - 1220px)/2)) 68px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -110px;
+      bottom: -160px;
+      width: 470px;
+      height: 470px;
+      border: 1px solid rgba(73, 217, 165, .22);
+      border-radius: 50%;
+      box-shadow: 0 0 0 70px rgba(73,217,165,.035), 0 0 0 140px rgba(73,217,165,.025);
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 980px; }
+    .meta { color: #9ec3cf; font-weight: 600; letter-spacing: .05em; font-size: .78rem; text-transform: uppercase; }
+    h1, h2, h3 { font-family: "Source Serif 4", Georgia, serif; line-height: 1.08; margin: 0; }
+    h1 { font-size: clamp(2.6rem, 6.2vw, 5.5rem); max-width: 920px; letter-spacing: -.04em; margin-top: 18px; }
+    .answer {
+      margin: 30px 0 0;
+      max-width: 850px;
+      color: #cce0e5;
+      font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+      line-height: 1.62;
+    }
+    .answer strong { color: #79ddb9; }
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      background: rgba(190,222,230,.16);
+      margin-top: 52px;
+      max-width: 1100px;
+      border-top: 1px solid rgba(190,222,230,.16);
+      border-bottom: 1px solid rgba(190,222,230,.16);
+    }
+    .hero-stat { background: rgba(4,22,32,.42); padding: 22px 24px; min-height: 132px; }
+    .hero-stat b { display: block; color: #fff; font-size: 2rem; line-height: 1.05; letter-spacing: -.04em; }
+    .hero-stat span { display: block; color: #a8c6cf; margin-top: 10px; font-size: .9rem; line-height: 1.4; }
+    .hero-source { color:#9ec3cf; font-size:.78rem; margin:15px 0 0; }
+    .hero-source a { color:#79ddb9; font-weight:600; }
+    .sticky-nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: color-mix(in srgb, var(--paper) 94%, transparent);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .sticky-nav .inner { max-width: 1220px; margin: auto; padding: 0 24px; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+    .sticky-nav a { flex: 0 0 auto; color: var(--muted); text-decoration: none; padding: 15px 11px 13px; border-bottom: 2px solid transparent; font-size: .88rem; font-weight: 600; }
+    .sticky-nav a:hover, .sticky-nav a.active { color: var(--ink); border-bottom-color: var(--green); }
+    main { max-width: 1220px; margin: 0 auto; padding: 62px 24px 90px; }
+    section { scroll-margin-top: 68px; margin-bottom: 92px; }
+    .section-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 48px; align-items: end; margin-bottom: 34px; }
+    .section-head h2 { font-size: clamp(2rem, 4vw, 3.7rem); letter-spacing: -.035em; }
+    .section-head p { margin: 0; color: var(--muted); font-size: 1rem; }
+    .eyebrow { color: var(--green-2); font-weight: 700; font-size: .82rem; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 11px; }
+    .thesis-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 22px; align-items: start; }
+    .thesis-main { background: var(--paper); border-top: 5px solid var(--green); padding: 34px; box-shadow: var(--shadow); }
+    .thesis-main h3 { font-size: 1.75rem; margin-bottom: 16px; }
+    .thesis-main p { margin: 0; color: var(--muted); font-size: 1.05rem; }
+    .fact-stack { display: grid; gap: 12px; }
+    .fact { border: 1px solid var(--line); background: var(--paper); padding: 20px 22px; }
+    .fact b { display:block; font-size: 1.1rem; margin-bottom: 5px; }
+    .fact p { margin: 0; color: var(--muted); font-size: .91rem; }
+    .source-line { margin-top: 16px !important; font-size: .82rem !important; color: var(--muted); }
+    .source-line a { font-weight: 600; }
+    .chart-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .8fr); gap: 22px; align-items: start; }
+    .chart-card, .side-card { background: var(--paper); border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(8,29,43,.055); }
+    .chart-card { padding: 26px 26px 20px; }
+    .card-head { display: flex; justify-content: space-between; gap: 22px; align-items: start; margin-bottom: 16px; }
+    .card-head h3 { font-size: 1.42rem; }
+    .card-head p { margin: 8px 0 0; color: var(--muted); font-size: .88rem; }
+    .segmented { display: flex; flex-wrap: wrap; gap: 5px; }
+    .segmented button {
+      border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 999px;
+      padding: 6px 11px; cursor: pointer; font-size: .78rem; font-weight: 700;
+    }
+    .segmented button.active { background: var(--navy-2); color: #fff; border-color: var(--navy-2); }
+    .chart-wrap { position: relative; }
+    .chart-wrap svg { width: 100%; height: auto; display: block; }
+    .chart-legend { display:flex; flex-wrap:wrap; gap:8px 18px; color:var(--muted); font-size:.78rem; font-weight:700; }
+    .chart-legend span { display:inline-flex; align-items:center; gap:7px; }
+    .chart-legend i { width:22px; height:2px; display:inline-block; background:var(--green); }
+    .chart-legend .high { background:var(--red); }
+    .chart-legend .critical { background:var(--amber); }
+    .chart-legend .launch { height:0; background:none; border-top:1px dotted var(--blue); }
+    .chart-caption { color: var(--muted); font-size: .8rem; margin: 10px 0 0; border-top: 1px solid var(--line); padding-top: 14px; }
+    .side-card { padding: 25px; }
+    .side-card + .side-card { margin-top: 14px; }
+    .side-card .big { font: 700 clamp(3rem, 6vw, 5.3rem)/.95 "Source Serif 4", serif; color: var(--red); letter-spacing: -.05em; }
+    .side-card h3 { font-size: 1.35rem; margin-top: 12px; }
+    .side-card p { margin: 10px 0 0; color: var(--muted); font-size: .92rem; }
+    .severity { margin-top: 22px; }
+    .severity-bar { display: flex; height: 18px; overflow: hidden; background: var(--line); }
+    .severity-bar span:nth-child(1) { background: var(--red); width: 26.47%; }
+    .severity-bar span:nth-child(2) { background: var(--amber); width: 71.57%; }
+    .severity-bar span:nth-child(3) { background: var(--blue); width: 1.96%; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; font-size: .78rem; color: var(--muted); }
+    .legend i { display:inline-block; width: 9px; height: 9px; margin-right: 5px; }
+    .trend-note { border-left: 3px solid var(--amber); padding-left: 15px; color: var(--muted); font-size: .9rem; margin-top: 22px; }
+    .events { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 24px; }
+    .event { background: var(--paper); border-top: 3px solid var(--blue); padding: 18px; min-height: 150px; }
+    .event time { font-weight: 700; color: var(--blue); font-size: .81rem; }
+    .event b { display:block; margin: 10px 0 5px; }
+    .event span { color: var(--muted); font-size: .82rem; line-height: 1.4; display:block; }
+    .batch-card { padding: 30px; }
+    .batch-key { color:var(--muted); font-size:.76rem; display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+    .batch-key i, .batch-key span { width:10px; height:10px; display:inline-block; background:var(--red); }
+    .batch-key span { background:var(--amber); margin-left:8px; }
+    .batch-list { display:grid; gap:16px; margin-top:24px; }
+    .batch-row { display:grid; grid-template-columns:minmax(190px,1.15fr) minmax(220px,2fr) 54px 92px; gap:14px; align-items:center; }
+    .batch-label b { display:block; font-size:.9rem; }
+    .batch-label span { color:var(--muted); font-size:.75rem; line-height:1.3; display:block; }
+    .batch-track { height:22px; background:var(--bg); border:1px solid var(--line); display:flex; overflow:hidden; }
+    .batch-track i { display:block; height:100%; background:var(--amber); }
+    .batch-track i.high { background:var(--red); }
+    .batch-row strong { font-size:1.1rem; text-align:right; }
+    .batch-row small { color:var(--muted); font-size:.74rem; }
+    .compact-events { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .score-note { margin-top:18px; background:var(--navy); color:#eff9fb; padding:28px 30px; }
+    .score-note h3 { font-size:1.45rem; }
+    .score-note p { color:#b9d0d7; margin:12px 0 0; }
+    .score-note .source-line { color:#a9c4cd; }
+    .score-note a { color:#75baf2; }
+    .timeline-shell { background: var(--navy); color: #eff9fb; padding: 34px; box-shadow: var(--shadow); }
+    .incident-header { display:grid; grid-template-columns: 1fr auto; gap: 24px; align-items:start; }
+    .incident-header h3 { font-size: 2rem; }
+    .incident-header p { color: #acc9d1; margin: 12px 0 0; max-width: 760px; }
+    .risk-badge { color: #ffd6d3; border: 1px solid rgba(242,128,119,.55); padding: 8px 12px; font-weight: 700; font-size: .8rem; }
+    .incident-timeline { display:grid; grid-template-columns: repeat(6, 1fr); gap: 0; margin-top: 40px; position:relative; }
+    .incident-timeline::before { content:""; position:absolute; top: 12px; left: 3%; right: 3%; height: 2px; background:#345160; }
+    .incident-step { position:relative; padding: 34px 14px 0 0; min-height: 190px; }
+    .incident-step::before { content:""; position:absolute; top:5px; left:0; width:14px; height:14px; border-radius:50%; background:var(--amber); border:4px solid var(--navy); box-shadow:0 0 0 1px var(--amber); }
+    .incident-step time { color:#f2bc74; font-size:.76rem; font-weight:700; }
+    .incident-step b { display:block; margin:6px 0; font-size:.91rem; line-height:1.25; }
+    .incident-step span { color:#9fbbc4; font-size:.78rem; line-height:1.4; display:block; }
+    .exposure-strip, .counterexample-grid { display:grid; grid-template-columns: repeat(3,1fr); gap:1px; background:#294653; margin-top:24px; }
+    .exposure-strip div, .counterexample-grid div { background:#0b2634; padding:20px; }
+    .exposure-strip b, .counterexample-grid b { display:block; font-size:1.6rem; }
+    .exposure-strip span, .counterexample-grid span { color:#a6c1c9; font-size:.8rem; }
+    .window-grid { display:grid; grid-template-columns: repeat(3,1fr); gap:18px; }
+    .window-stat { background:var(--paper); border:1px solid var(--line); padding:26px; }
+    .window-stat .num { font:700 2.8rem/1 "Source Serif 4",serif; color:var(--amber); }
+    .window-stat h3 { font-size:1.15rem; margin-top:12px; }
+    .window-stat p { margin:8px 0 0; color:var(--muted); font-size:.87rem; }
+    .journey { background:var(--paper); border:1px solid var(--line); padding:30px; }
+    .journey-intro { display:grid; grid-template-columns:1fr .8fr; gap:32px; margin-bottom:30px; }
+    .journey-intro h3 { font-size:1.8rem; }
+    .journey-intro p { color:var(--muted); margin:0; }
+    .stages { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:7px; }
+    .stage { min-width:0; background:var(--blue-soft); padding:15px 10px; border-top:4px solid var(--blue); position:relative; }
+    .stage::after { content:"›"; position:absolute; right:-7px; top:35px; z-index:2; color:var(--muted); font-weight:700; }
+    .stage:last-child::after { display:none; }
+    .stage .n { color:var(--blue); font-size:.72rem; font-weight:700; }
+    .stage b { display:block; margin-top:8px; font-size:.8rem; line-height:1.2; overflow-wrap:anywhere; }
+    .stage em { display:block; font-style:normal; color:var(--muted); font-size:.66rem; line-height:1.25; margin-top:8px; }
+    .stage.human { background:var(--amber-soft); border-top-color:var(--amber); }
+    .stage.ai { background:var(--green-soft); border-top-color:var(--green); }
+    .stage.ai .n { color:var(--green-2); }
+    .journey-legend { display:flex; flex-wrap:wrap; gap:10px 22px; border-top:1px solid var(--line); margin-top:24px; padding-top:18px; color:var(--muted); font-size:.8rem; }
+    .journey-legend b { color:var(--ink); }
+    .mapping { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
+    .map-card { padding:20px; background:var(--bg); }
+    .map-card small { color:var(--green-2); font-weight:700; }
+    .map-card b { display:block; margin:6px 0; }
+    .map-card span { color:var(--muted); font-size:.84rem; }
+    .automation-proof { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:22px; }
+    .proof { border-top:3px solid var(--green); background:var(--paper); padding:21px; }
+    .proof b { font-size:1.35rem; display:block; }
+    .proof span { color:var(--muted); font-size:.84rem; }
+    .open-questions details { background:var(--paper); border-bottom:1px solid var(--line); }
+    .open-questions summary { cursor:pointer; padding:18px 4px; font-weight:700; list-style:none; display:flex; justify-content:space-between; gap:20px; }
+    .open-questions summary::after { content:"+"; color:var(--green-2); }
+    .open-questions details[open] summary::after { content:"−"; }
+    .open-questions p { color:var(--muted); margin:0; padding:0 4px 20px; max-width:900px; }
+    .sources-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px 28px; }
+    .source-item { border-top:1px solid var(--line); padding:13px 0; display:grid; grid-template-columns:34px 1fr; gap:8px; }
+    .source-item span { color:var(--muted); font-size:.76rem; font-weight:700; }
+    .source-item a { font-size:.88rem; font-weight:600; overflow-wrap:anywhere; }
+    .source-item p { grid-column:2; margin:2px 0 0; color:var(--muted); font-size:.8rem; }
+    .method-note { margin-top:28px; color:var(--muted); font-size:.84rem; max-width:960px; }
+    footer { border-top:1px solid var(--line); padding:24px; text-align:center; color:var(--muted); font-size:.78rem; }
+    .tooltip {
+      position: fixed; z-index: 100; pointer-events:none; background:var(--navy); color:#fff; border:1px solid #456170;
+      padding:8px 10px; border-radius:8px; font-size:.76rem; line-height:1.35; opacity:0; transform:translate(-50%,-110%);
+      box-shadow:0 8px 20px rgba(0,0,0,.25);
+    }
+    @media (max-width: 900px) {
+      .hero-stats { grid-template-columns:repeat(2,1fr); }
+      .section-head, .thesis-grid, .chart-grid, .journey-intro { grid-template-columns:1fr; gap:20px; }
+      .events { grid-template-columns:repeat(2,1fr); }
+      .compact-events { grid-template-columns:repeat(2,1fr); }
+      .batch-row { grid-template-columns:minmax(160px,1fr) minmax(180px,1.4fr) 48px 76px; gap:10px; }
+      .window-grid, .mapping, .automation-proof { grid-template-columns:1fr; }
+      .stages { grid-template-columns:repeat(3,1fr); }
+      .stage::after { display:none; }
+      .incident-timeline { grid-template-columns:repeat(3,1fr); row-gap:16px; }
+      .incident-timeline::before { display:none; }
+      .exposure-strip, .counterexample-grid { grid-template-columns:1fr; }
+    }
+    @media (max-width: 600px) {
+      .hero { padding:48px 20px 40px; }
+      .hero::after { width:290px; height:290px; right:-160px; bottom:-90px; }
+      .hero-stats { grid-template-columns:1fr 1fr; margin-top:36px; }
+      .hero-stat { padding:18px 14px; min-height:120px; }
+      .hero-stat b { font-size:1.55rem; }
+      .sticky-nav .inner { padding:7px 12px 6px; flex-wrap:wrap; justify-content:center; gap:0 3px; overflow:visible; }
+      .sticky-nav a { padding:5px 6px 4px; font-size:.68rem; }
+      main { padding:42px 18px 70px; }
+      section { margin-bottom:70px; }
+      .section-head { margin-bottom:24px; }
+      .thesis-main, .chart-card, .timeline-shell, .journey { padding:22px 18px; }
+      .card-head { display:block; }
+      .segmented { margin-top:14px; }
+      .chart-wrap { min-height:0; }
+      .chart-wrap svg { min-height:0; }
+      .events, .compact-events { grid-template-columns:1fr; }
+      .event { min-height:0; }
+      .batch-card { padding:22px 16px; }
+      .batch-row { grid-template-columns:1fr auto; gap:7px 12px; padding-bottom:15px; border-bottom:1px solid var(--line); }
+      .batch-track { grid-column:1 / -1; grid-row:2; }
+      .batch-row strong { grid-column:2; grid-row:1; }
+      .batch-row small { grid-column:1 / -1; grid-row:3; }
+      .incident-header { grid-template-columns:1fr; }
+      .incident-timeline { grid-template-columns:1fr; margin-top:26px; }
+      .incident-step { min-height:0; padding:0 0 18px 28px; border-left:2px solid #345160; }
+      .incident-step::before { left:-8px; top:3px; }
+      .stages { grid-template-columns:1fr 1fr; }
+      .sources-grid { grid-template-columns:1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
+    @media print {
+      .sticky-nav, .segmented { display:none; }
+      body { background:#fff; color:#111; }
+      .hero { padding:36px; }
+      section { break-inside:avoid; margin-bottom:50px; }
+      .chart-card, .side-card, .timeline-shell, .journey { box-shadow:none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="meta">Research brief · Evidence current to 18 September 2026</div>
+      <h1>MongoDB patches are carrying a heavier security payload</h1>
+      <p class="answer"><strong>This is a density story, not a cadence story.</strong> From 2018–2024, a MongoDB security patch typically carried one or two CVEs. In 2025 the average rose to 2.38 CVEs per security release. By 2026 it was approximately nine—with repeated 20-plus-CVE batches and far more High-severity findings inside each rollout.</p>
+      <div class="hero-stats" aria-label="Key findings">
+        <div class="hero-stat"><b>≈1.2</b><span>CVEs per security patch across the 2018–2024 baseline</span></div>
+        <div class="hero-stat"><b>2.38</b><span>CVEs per security patch in 2025</span></div>
+        <div class="hero-stat"><b>≈9</b><span>CVEs per security patch in 2026 through Sep 18</span></div>
+        <div class="hero-stat"><b>≈7+</b><span>Critical + High CVEs per 2026 security patch, using CVSS v3</span></div>
+      </div>
+      <p class="hero-source">Evidence: <a href="https://vulners.com/search/vendors/mongodb/products/mongodb" target="_blank" rel="noopener">Vulners fixed-version mapping</a> · <a href="https://stack.watch/product/mongodb/mongodb/" target="_blank" rel="noopener">StackWatch 2026 index</a> · <a href="https://www.mongodb.com/docs/manual/release-notes/" target="_blank" rel="noopener">MongoDB release notes</a></p>
+    </div>
+  </header>
+
+  <nav class="sticky-nav" aria-label="Report chapters">
+    <div class="inner">
+      <a href="#finding">Finding</a><a href="#density">Density</a><a href="#batches">Mega-batches</a><a href="#severity">Severity</a><a href="#mongobleed">Counterexample</a><a href="#window">Response</a><a href="#automation">Automation</a><a href="#sources">Sources</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="finding">
+      <div class="section-head">
+        <div><div class="eyebrow">01 · The finding</div><h2>A sharp break in what each patch must absorb</h2></div>
+        <p>The defensible claim is narrower—and stronger—than “more releases”: the CVE payload inside each security patch rose sharply in 2025 and accelerated again in 2026.</p>
+      </div>
+      <div class="thesis-grid">
+        <article class="thesis-main">
+          <h3>For years, one patch meant one or two CVEs. Now a patch can mean twenty-four.</h3>
+          <p>Across 2018–2024, the annual average stayed near 1.0–1.4 CVEs per security release, and no patch carried more than two. The average reached 2.38 in 2025, then approximately nine in 2026 through September 18. Three 2026 disclosure waves—July, August and September—each put 20 or more CVEs into branch patches.</p>
+          <p class="source-line">Sources: <a href="https://vulners.com/search/vendors/mongodb/products/mongodb" target="_blank" rel="noopener">Vulners MongoDB index</a> · <a href="https://stack.watch/product/mongodb/mongodb/" target="_blank" rel="noopener">StackWatch MongoDB index</a> · <a href="https://www.mongodb.com/docs/manual/release-notes/" target="_blank" rel="noopener">MongoDB release notes</a></p>
+        </article>
+        <div class="fact-stack">
+          <article class="fact"><b>Severity rose with density</b><p>Average Critical + High findings per security release rose from well under one in 2018–2024 to 1.69 in 2025 and approximately seven or more in 2026 under CVSS v3.</p><p class="source-line"><a href="https://stack.watch/product/mongodb/mongodb/" target="_blank" rel="noopener">StackWatch</a> · <a href="https://vulners.com/search/vendors/mongodb/products/mongodb" target="_blank" rel="noopener">Vulners</a></p></article>
+          <article class="fact"><b>The increase is batch-driven, not universal</b><p>Single-CVE patches still occur. The change comes from repeated mega-batches, not from every patch becoming larger. That distinction matters for planning and prioritization.</p><p class="source-line"><a href="https://www.mongodb.com/docs/manual/release-notes/8.3/" target="_blank" rel="noopener">MongoDB 8.3 release notes</a></p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="density">
+      <div class="section-head">
+        <div><div class="eyebrow">02 · Per-patch density</div><h2>Every mapped patch shows where the payload broke upward</h2></div>
+        <p>Each point is one branch patch release carrying mapped Server CVEs. The three lines show total CVEs, Critical CVEs and High CVEs in that release—not annual averages.</p>
+      </div>
+      <div class="chart-grid">
+        <article class="chart-card">
+          <div class="card-head">
+            <div><h3>CVE payload in every mapped MongoDB security release</h3><p>Release order, 2018–2026 · v3 severity through 2025; published v4 Critical labels shown for 2026 · hover or focus a point</p></div>
+            <div class="chart-legend" aria-label="Chart legend">
+              <span><i></i>Total CVEs</span><span><i class="high"></i>High</span><span><i class="critical"></i>Critical (v4 in 2026)</span><span><i class="launch"></i>Glasswing launch</span>
+            </div>
+          </div>
+          <div class="chart-wrap"><svg id="densityChart" role="img" aria-label="Line chart showing total, Critical, and High CVEs in every mapped MongoDB security patch release from 2018 through 2026, with a dotted marker for the Project Glasswing launch"></svg></div>
+          <p class="chart-caption">Sources: CVE-to-fixed-version mapping from <a href="https://vulners.com/search/vendors/mongodb/products/mongodb" target="_blank" rel="noopener">Vulners</a> and <a href="https://stack.watch/product/mongodb/mongodb/" target="_blank" rel="noopener">StackWatch</a>, checked against <a href="https://www.mongodb.com/docs/manual/release-notes/" target="_blank" rel="noopener">MongoDB release notes</a>. The Critical line is not zero: it uses CVSS v3.x through 2025, then preserves the published v4-Critical labels for CVE-2026-13072 in July, CVE-2026-18691 in August and CVE-2026-82067 in September. Under v3 those three score as High, so the score generation matters. The dotted marker is the reported <a href="https://venturebeat.com/technology/anthropic-says-its-most-powerful-ai-cyber-model-is-too-dangerous-to-release" target="_blank" rel="noopener">Project Glasswing launch on April 7, 2026</a>; it is timing context, not proof of causation. No public record was found that MongoDB joined the program. Approximate and lower-bound values are marked; 2022 is omitted because its confirmed Server CVE could not be mapped to a patch release.</p>
+        </article>
+        <aside>
+          <article class="side-card"><div class="big">≈7.5×</div><h3>More CVEs in the average patch</h3><p>Approximately nine CVEs per 2026 security release versus a roughly 1.2-CVE baseline across 2018–2024. This ratio is derived from the sourced annual aggregates.</p></article>
+          <article class="side-card"><div class="big">12×</div><h3>Larger worst case</h3><p>The annual maximum moved from two CVEs in any 2018–2024 patch to approximately 24 in September 2026.</p><p class="source-line"><a href="https://securityonline.info/mongodb-server-vulnerabilities/" target="_blank" rel="noopener">SecurityOnline September batch</a></p></article>
+          <article class="side-card"><h3>What the average hides</h3><p>2026 still had one-CVE releases. The ≈9 average is driven by three coordinated mega-batches and should not be read as “every patch has nine CVEs.”</p><p class="source-line"><a href="https://stack.watch/product/mongodb/mongodb/" target="_blank" rel="noopener">StackWatch</a></p></article>
+        </aside>
+      </div>
+    </section>
+
+    <section id="batches">
+      <div class="section-head">
+        <div><div class="eyebrow">03 · Mega-batches</div><h2>Three disclosure waves changed the operating scale</h2></div>
+        <p>The 2026 increase is concentrated in July, August and September. Counts below are event-level; the same event can feed several branch releases, whose exact CVE subsets may differ.</p>
+      </div>
+      <article class="chart-card batch-card">
+        <div class="card-head"><div><h3>Unique Server CVEs in coordinated disclosure events</h3><p>Selected events show the shift from one-to-five-CVE packages to 20-plus.</p></div><div class="batch-key"><i></i> Critical / High at the cited score version <span></span> Medium / Low</div></div>
+        <div class="batch-list" aria-label="Selected MongoDB disclosure events by CVE count and severity">
+          <div class="batch-row"><div class="batch-label"><b>Feb 2024</b><span>7.0.6 / 6.0.14 / 5.0.25 / 4.4.29</span></div><div class="batch-track"><i class="high" style="width:3.7%"></i></div><strong>1</strong><small>1 Critical</small></div>
+          <div class="batch-row"><div class="batch-label"><b>Apr 2025</b><span>7.0.16 plus three branches</span></div><div class="batch-track"><i class="high" style="width:14.81%"></i><i style="width:3.7%"></i></div><strong>5</strong><small>4 High</small></div>
+          <div class="batch-row"><div class="batch-label"><b>Dec 2025</b><span>MongoBleed across six branches</span></div><div class="batch-track"><i class="high" style="width:3.7%"></i></div><strong>1</strong><small>1 High</small></div>
+          <div class="batch-row"><div class="batch-label"><b>Jul 2026</b><span>7.0.39 / 8.0.28 / 8.2.12 / 8.3.7</span></div><div class="batch-track"><i class="high" style="width:70.37%"></i><i style="width:25.93%"></i></div><strong>≈26</strong><small>1 Critical + ≈19 High (v4)</small></div>
+          <div class="batch-row"><div class="batch-label"><b>Aug 2026</b><span>7.0.40 / 8.0.29 / 8.3.8</span></div><div class="batch-track"><i class="high" style="width:44.44%"></i><i style="width:29.63%"></i></div><strong>20+</strong><small>1 Critical (v4) + ≈12+ High</small></div>
+          <div class="batch-row"><div class="batch-label"><b>Sep 2026</b><span>7.0.41 / 8.0.30 / 8.3.9</span></div><div class="batch-track"><i class="high" style="width:66.67%"></i><i style="width:22.22%"></i></div><strong>24</strong><small>1 Critical (v4); 18 High (v3)</small></div>
+        </div>
+        <p class="chart-caption">Sources: <a href="https://securityonline.info/mongodb-vulnerabilities-2026/" target="_blank" rel="noopener">July 2026 analysis</a> · <a href="https://oday-bakkour.com/blog/release-audit-august-17-2026-mongodb-postgresql-bullmq-cves" target="_blank" rel="noopener">August 2026 audit</a> · <a href="https://securityonline.info/mongodb-server-vulnerabilities/" target="_blank" rel="noopener">September 2026 analysis</a> · <a href="https://vulners.com/search/vendors/mongodb/products/mongodb" target="_blank" rel="noopener">historical mapping</a>. July’s published 27 includes Compass; approximately 26 are Server. Branch-level subsets are not fully verified.</p>
+      </article>
+      <div class="events compact-events">
+        <div class="event"><time>2018–2024 baseline</time><b>One or two per patch</b><span>No single branch patch in the mapped dataset exceeded two CVEs.</span></div>
+        <div class="event"><time>2025 transition</time><b>Four to five in April</b><span>7.0.16 carried five CVEs, four of them High under the working v3 mapping.</span></div>
+        <div class="event"><time>2026 regime change</time><b>Repeated 20-plus batches</b><span>Three consecutive disclosure waves, each propagated across several supported branches.</span></div>
+        <div class="event"><time>Important caveat</time><b>Not every patch is bigger</b><span>February and March 2026 were still one-CVE events across three branches each.</span></div>
+      </div>
+    </section>
+
+    <section id="severity">
+      <div class="section-head">
+        <div><div class="eyebrow">04 · Severity</div><h2>High severity is the dominant escalation</h2></div>
+        <p>Critical counts depend on the scoring generation. The comparable annual figures use CVSS v3.x, while the per-release chart preserves the three published v4-Critical labels in 2026 rather than showing Critical as zero.</p>
+      </div>
+      <div class="window-grid severity-grid">
+        <article class="window-stat"><div class="num">0.42</div><h3>Average C + H per patch, 2024</h3><p>The year included CVE-2024-1351, the first mapped v3-Critical Server CVE in this dataset, scored 9.8 and fixed across four branches.</p><p class="source-line"><a href="https://www.filecloud.com/supportdocs/fcdoc/latest/server/security-advisories/2024-security-advisories/filecloud-release-23-232-security-advisories/advisory-2024-02-02-mongodb-vulnerability" target="_blank" rel="noopener">FileCloud advisory</a></p></article>
+        <article class="window-stat"><div class="num">1.69</div><h3>Average C + H per patch, 2025</h3><p>April’s five-CVE 7.0.16 patch included four Highs under the working v3 mapping; three sibling branches carried four CVEs each.</p><p class="source-line"><a href="https://www.acn.gov.it/portale/w/rilevate-vulnerabilita-in-mongodb-1" target="_blank" rel="noopener">Italy ACN advisory</a> · <a href="https://vulners.com/search/vendors/mongodb/products/mongodb" target="_blank" rel="noopener">Vulners</a></p></article>
+        <article class="window-stat"><div class="num">≈7+</div><h3>Average C + H per patch, 2026</h3><p>September alone carried 18 Highs among 24 Server CVEs at event level; branch subsets differ and are not fully mapped.</p><p class="source-line"><a href="https://securityonline.info/mongodb-server-vulnerabilities/" target="_blank" rel="noopener">SecurityOnline</a></p></article>
+      </div>
+      <article class="score-note">
+        <h3>Critical was not zero under CVSS v4</h3>
+        <p>Three prominent 2026 findings cross the Critical threshold under CVSS v4 but remain High under v3: CVE-2026-13072 is 9.2 v4 / 8.1 v3; CVE-2026-18691 is 9.0 v4 / 7.2 v3; and CVE-2026-82067 is v4-Critical / 8.1 v3. The line chart now shows those three v4-Critical findings while keeping the score-version distinction explicit.</p>
+        <p class="source-line"><a href="https://securityonline.info/mongodb-vulnerabilities-2026/" target="_blank" rel="noopener">July batch</a> · <a href="https://oday-bakkour.com/blog/release-audit-august-17-2026-mongodb-postgresql-bullmq-cves" target="_blank" rel="noopener">August batch</a> · <a href="https://www.csa.gov.sg/alerts-and-advisories/alerts/al-2026-122/" target="_blank" rel="noopener">CSA advisory for CVE-2026-82067</a></p>
+      </article>
+    </section>
+
+    <section id="mongobleed">
+      <div class="section-head">
+        <div><div class="eyebrow">05 · Counterexample</div><h2>Density is not the whole risk: MongoBleed was one CVE</h2></div>
+        <p>CVE-2025-14847 was a single High-severity finding propagated across six branches. It shows why the workflow must respond to both dense batches and singular urgent flaws.</p>
+      </div>
+      <article class="timeline-shell counterexample-shell">
+        <div class="incident-header">
+          <div><h3>One vulnerability, six branch patches</h3><p>MongoBleed was published on December 19, 2025 and fixed in 8.2.3, 8.0.17, 7.0.28, 6.0.27, 5.0.32 and 4.4.30. Its score is 7.5 High under CVSS v3.1 and 8.7 High under v4.0.</p></div>
+          <div class="risk-badge">1 CVE × 6 branches</div>
+        </div>
+        <div class="counterexample-grid">
+          <div><b>1</b><span>CVE in each patch</span></div>
+          <div><b>7.5</b><span>CVSS v3.1 · High</span></div>
+          <div><b>8.7</b><span>CVSS v4.0 · High</span></div>
+        </div>
+        <p class="chart-caption">Source: <a href="https://app.opencve.io/cve/CVE-2025-14847" target="_blank" rel="noopener">OpenCVE record for CVE-2025-14847</a>. Release date and fixed branches are also reflected in the mapped release dataset.</p>
+      </article>
+    </section>
+
+    <section id="window">
+      <div class="section-head">
+        <div><div class="eyebrow">06 · Response implication</div><h2>One patch can now create dozens of parallel decisions</h2></div>
+        <p>Patch deployment is only the final step. Higher CVE density expands the work that must happen before and after it: applicability, severity, dependency, test coverage and proof of closure.</p>
+      </div>
+      <div class="window-grid">
+        <article class="window-stat"><div class="num">24</div><h3>Applicability checks</h3><p>The September 2026 event contained 24 Server CVEs. Each affected asset and branch needs a defensible applicability decision.</p><p class="source-line"><a href="https://securityonline.info/mongodb-server-vulnerabilities/" target="_blank" rel="noopener">September batch analysis</a></p></article>
+        <article class="window-stat"><div class="num">18</div><h3>High-severity paths</h3><p>Eighteen of those September findings were High under CVSS v3, raising the number of urgent test and rollout paths inside one patch event.</p><p class="source-line"><a href="https://securityonline.info/mongodb-server-vulnerabilities/" target="_blank" rel="noopener">September batch analysis</a></p></article>
+        <article class="window-stat"><div class="num">3</div><h3>Supported branches</h3><p>The event mapped to 7.0.41, 8.0.30 and 8.3.9. Branch subsets may differ, so automation must preserve version-specific evidence rather than treat the batch as uniform.</p><p class="source-line"><a href="https://stack.watch/product/mongodb/mongodb/" target="_blank" rel="noopener">StackWatch mapping</a></p></article>
+      </div>
+      <p class="method-note">The risk is operational multiplication: more findings per patch create more work inside the same change window. Density, severity and branch scope should therefore drive prioritization together.</p>
+    </section>
+
+    <section id="automation">
+      <div class="section-head">
+        <div><div class="eyebrow">07 · Operating answer</div><h2>Make patch capacity scale with CVE payload</h2></div>
+        <p>The response is a reusable workflow engine for patch acceleration: automation moves the work; humans retain the consequential decisions.</p>
+      </div>
+      <article class="journey">
+        <div class="journey-intro">
+          <div><h3>RBC Autonomous Patch Management</h3><p style="margin-top:10px">Patching Orchestrator is the execution plane. Patch Governance measures performance and assurance—risk burn-down, SLA tracking, evidence quality, exceptions and role-specific reporting—not policy controls.</p></div>
+          <p>A 20-plus-CVE patch multiplies triage, applicability checks, testing evidence and closure work. The nine-stage Patch Journey turns that variable payload into a repeatable flow: inventory → risk prioritization → staging/canary → rolling node updates → health checks, rollback and evidence.</p>
+        </div>
+        <div class="stages" aria-label="Nine-stage autonomous patch journey">
+          <div class="stage ai"><span class="n">01</span><b>Discovery</b><em>LLM-assisted patch discovery</em></div>
+          <div class="stage"><span class="n">02</span><b>Notifying</b><em>Route owners and urgency</em></div>
+          <div class="stage human"><span class="n">03</span><b>Decision</b><em>Human in the loop</em></div>
+          <div class="stage"><span class="n">04</span><b>Testing</b><em>Stage and canary</em></div>
+          <div class="stage human"><span class="n">05</span><b>Certification</b><em>Decision gate</em></div>
+          <div class="stage"><span class="n">06</span><b>Scheduling</b><em>Window and dependencies</em></div>
+          <div class="stage"><span class="n">07</span><b>Rollout &amp; Deploy</b><em>Bring your Ansible playbooks</em></div>
+          <div class="stage"><span class="n">08</span><b>PIV</b><em>Health checks and validation</em></div>
+          <div class="stage ai"><span class="n">09</span><b>Complete</b><em>Evidence and closure</em></div>
+        </div>
+        <div class="journey-legend"><span><b>Green:</b> intelligence / evidence</span><span><b>Amber:</b> human decision gate</span><span><b>Blue:</b> orchestrated execution</span></div>
+        <div class="mapping">
+          <div class="map-card"><small>DISCOVERY → DECISION</small><b>Prioritize what can hurt now</b><span>Join inventory, KEV signals and asset context; notify the accountable owner; make blast radius explicit.</span></div>
+          <div class="map-card"><small>TESTING → DEPLOY</small><b>Move safely at machine speed</b><span>Use customer-owned playbooks, canaries and rolling database-node updates rather than undifferentiated fleet pushes.</span></div>
+          <div class="map-card"><small>PIV → COMPLETE</small><b>Prove closure, not activity</b><span>Verify service health, preserve rollback evidence and feed risk burn-down and SLA performance into governance.</span></div>
+        </div>
+      </article>
+      <div class="automation-proof">
+        <article class="proof"><b>Parallelize analysis</b><span>Parse the CVE set once, map affected versions across inventory, and keep every applicability decision traceable.</span></article>
+        <article class="proof"><b>Reuse tested execution</b><span>Apply customer-owned Ansible playbooks through canaries and rolling database-node updates instead of rebuilding a runbook for every batch.</span></article>
+        <article class="proof"><b>Keep human judgment</b><span>Retain approval for high-blast-radius changes, certification gates, replica-set or sharded-cluster restarts and major upgrades.</span></article>
+      </div>
+      <p class="method-note">Automation does not reduce the number of vulnerabilities. It prevents a 20-plus-CVE patch from becoming a 20-plus-item coordination backlog—and preserves evidence that each item was evaluated, tested and closed.</p>
+    </section>
+
+    <section class="open-questions" id="limits">
+      <div class="section-head"><div><div class="eyebrow">08 · Research limits</div><h2>Where the density estimate is bounded</h2></div><p>The gaps are explicit so approximate values are not mistaken for exact branch-level counts.</p></div>
+      <details><summary>How complete is 2022?</summary><p>Incomplete. Only CVE-2022-24272 was confirmed as MongoDB Server in the research; other 2022 MongoDB-vendor CVEs may be drivers. The chart marks 2022 as a lower bound and does not use it to establish the baseline claim.</p></details>
+      <details><summary>Are the July and August 2026 per-branch counts exact?</summary><p>No. July’s public count is 27 across Server and Compass, approximately 26 for Server, while August is reported as 20-plus. Exact branch subsets differ and were not fully mapped, so the affected per-release line-chart points and annual averages are marked approximate.</p></details>
+      <details><summary>Does “Critical” mean the same thing under CVSS v3 and v4?</summary><p>No. Several 2026 findings cross the 9.0 threshold only under v4. The comparable annual series uses v3.x and calls those findings High, while the score-version note preserves the v4 Critical label.</p></details>
+      <details><summary>Could some 2018–2024 releases contain another CVE?</summary><p>Yes. Several older release dates and fix-version mappings are approximate, and a small set of CVEs could not be assigned to a patch release. The strongest supported baseline is that mapped patches carried one or two CVEs; it is not a claim of exhaustive historical enumeration.</p></details>
+      <details><summary>Which MongoBleed dates are disputed?</summary><p>Discovery is reported as December 12 or 15, 2025; public PoC as December 25 or 26. Both ranges are preserved in the incident timeline.</p></details>
+    </section>
+
+    <section id="sources">
+      <div class="section-head"><div><div class="eyebrow">09 · Sources</div><h2>Release mapping and severity evidence</h2></div><p>All links were carried from the completed density research and read on September 18, 2026. Index-only sources are identified in the research limits through careful wording and approximations.</p></div>
+      <div class="sources-grid">
+        <div class="source-item"><span>01</span><div><a href="https://vulners.com/search/vendors/mongodb/products/mongodb" target="_blank" rel="noopener">Vulners MongoDB product index</a><p>CVE-to-fixed-version mapping and v3 scores for 2018–2025.</p></div></div>
+        <div class="source-item"><span>02</span><div><a href="https://stack.watch/product/mongodb/mongodb/" target="_blank" rel="noopener">StackWatch MongoDB index</a><p>2026 CVE scores, dates and fixed versions.</p></div></div>
+        <div class="source-item"><span>03</span><div><a href="https://www.mongodb.com/docs/manual/release-notes/" target="_blank" rel="noopener">MongoDB Server release notes</a><p>Official release-note index.</p></div></div>
+        <div class="source-item"><span>04</span><div><a href="https://www.mongodb.com/docs/manual/release-notes/8.3/" target="_blank" rel="noopener">MongoDB 8.3 release notes</a><p>Official SERVER ticket references.</p></div></div>
+        <div class="source-item"><span>05</span><div><a href="https://www.acn.gov.it/portale/w/rilevate-vulnerabilita-in-mongodb-1" target="_blank" rel="noopener">Italy ACN MongoDB advisory</a><p>April 2025 multi-CVE event and fixed releases.</p></div></div>
+        <div class="source-item"><span>06</span><div><a href="https://jira.mongodb.org/browse/SERVER-106748" target="_blank" rel="noopener">MongoDB Jira: SERVER-106748</a><p>CVE-2025-6709 branch mapping.</p></div></div>
+        <div class="source-item"><span>07</span><div><a href="https://www.tenable.com/plugins/nessus/303196" target="_blank" rel="noopener">Tenable: CVE-2026-4358</a><p>v3 score and March 2026 fixed branches.</p></div></div>
+        <div class="source-item"><span>08</span><div><a href="https://app.opencve.io/cve/CVE-2025-14847" target="_blank" rel="noopener">OpenCVE: CVE-2025-14847</a><p>MongoBleed scores, date and fixed branches.</p></div></div>
+        <div class="source-item"><span>09</span><div><a href="https://securityonline.info/mongodb-vulnerabilities-2026/" target="_blank" rel="noopener">SecurityOnline: July 2026 batch</a><p>27 CVEs across Server and Compass, including v4 severity.</p></div></div>
+        <div class="source-item"><span>10</span><div><a href="https://oday-bakkour.com/blog/release-audit-august-17-2026-mongodb-postgresql-bullmq-cves" target="_blank" rel="noopener">Release audit: August 2026</a><p>20-plus CVEs and CVE-2026-18691 score split.</p></div></div>
+        <div class="source-item"><span>11</span><div><a href="https://securityonline.info/mongodb-server-vulnerabilities/" target="_blank" rel="noopener">SecurityOnline: September 2026 batch</a><p>24 Server CVEs, 18 High under v3.</p></div></div>
+        <div class="source-item"><span>12</span><div><a href="https://www.csa.gov.sg/alerts-and-advisories/alerts/al-2026-122/" target="_blank" rel="noopener">Singapore CSA: CVE-2026-82067</a><p>v3.1 8.1 High and affected ranges.</p></div></div>
+      </div>
+      <p class="method-note">Method: one row per branch patch release with mapped Server CVEs. CVSS v3.x defines the comparable Critical + High series; v4 scores are shown where they change the label. 2026 annual figures are approximate because July and August event totals and per-branch subsets are not fully resolved. 2022 is incomplete.</p>
+    </section>
+  </main>
+  <footer>Research snapshot · Evidence current to 18 September 2026</footer>
+  <div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+
+  <script>
+    const releaseData = [
+      ['4.0.5','~Oct 2018',2,0,0],['3.6.10','~Oct 2018',1,0,0],['3.4.19','~Nov 2018',1,0,0],
+      ['3.6.11','~Jan 2019',1,0,0],['4.0.6','~Jan 2019',1,0,0],['4.0.9','~Apr 2019',1,0,1],['4.0.10','~Jun 2019',1,0,0],['3.6.13','~Jun 2019',1,0,0],['3.4.22','~Sep 2019',1,0,1],['3.6.14','~Sep 2019',1,0,1],['4.0.11','~Sep 2019',1,0,1],['3.4.24','~Sep 2019',2,0,1],['3.6.15','~Sep 2019',2,0,1],['4.0.13','~Sep 2019',2,0,1],['4.2.1','~Sep 2019',2,0,1],['4.2.2','~Oct 2019',1,0,0],
+      ['4.2.3','~Apr 2020',1,0,0],['4.0.15','~2020',1,0,0],['4.2.8','~Aug 2020',1,0,0],['4.0.19','~Aug 2020',1,0,0],['4.2.9','~Aug 2020',2,0,1],['4.4.1','~Sep 2020',2,0,0],['4.0.20','~Dec 2020',2,0,0],['3.6.20','~Dec 2020',1,0,0],['3.6.21','~Dec 2020',1,0,0],
+      ['4.4.4','~Mar 2021',1,0,0],['3.6.20','2021',1,0,0],['4.0.21','2021',1,0,0],['4.2.10','2021',1,0,0],['4.0.27','~2021',1,0,0],['4.2.16','~2021',1,0,0],['4.4.9','~2021',1,0,0],['5.0.3','~Sep 2021',1,0,0],['5.0.4','~Sep 2021',1,0,1],['4.4.10','~Sep 2021',1,0,1],['4.2.17','~Sep 2021',2,0,2],['4.0.29','~Oct 2021',1,0,1],['5.0.5','~Nov 2021',1,0,1],
+      ['5.0.22','~Oct 2023',1,0,0],['6.0.11','~Sep 2023',1,0,0],['7.0.3','~Oct 2023',1,0,0],
+      ['7.0.6','~Feb 2024',1,1,0],['6.0.14','~Feb 2024',1,1,0],['5.0.25','~Feb 2024',1,1,0],['4.4.29','~Feb 2024',1,1,0],['6.0.16','~Jul 2024',1,0,0],['7.0.11','~Jul 2024',1,0,0],['7.3.3','~Jul 2024',1,0,0],['7.3.4','~Jul 2024',2,0,0],['5.0.30','2024-11-27',1,0,0],['6.0.19','2024-11-27',2,0,0],['7.0.15','2024-11-27',2,0,0],['8.0.3','2024-11-27',1,0,0],['8.0.1','~Nov 2024',1,0,1],
+      ['5.0.31','~Apr 2025',4,0,3],['6.0.20','~Apr 2025',4,0,3],['7.0.16','~Apr 2025',5,0,4],['8.0.4','~Apr 2025',4,0,3],['6.0.21','2025-06-26',1,0,1],['7.0.17','2025-06-26',1,0,1],['8.0.5','2025-06-26',1,0,1],['8.2.3','2025-12-19',1,0,1],['8.0.17','2025-12-19',1,0,1],['7.0.28','2025-12-19',1,0,1],['6.0.27','2025-12-19',1,0,1],['5.0.32','2025-12-19',1,0,1],['4.4.30','2025-12-19',1,0,1],
+      ['7.0.29','~Feb 2026',1,0,1],['8.0.18','~Feb 2026',1,0,1],['8.2.4','~Feb 2026',1,0,1],['7.0.31','2026-03-17',1,0,1],['8.0.20','2026-03-17',1,0,1],['8.2.6','2026-03-17',1,0,1],['8.2.7','~May/Jun 2026',1,0,0],['5.0.33','~May/Jun 2026',3,0,1],['6.0.28','~May/Jun 2026',3,0,1],['7.0.34','~May/Jun 2026',3,0,1],['8.0.23','~May/Jun 2026',3,0,1],['8.2.9','~May/Jun 2026',3,0,1],['8.3.2','~May/Jun 2026',3,0,1],
+      ['7.0.39','~Jul 2026',20,1,15,'lower'],['8.0.28','~Jul 2026',20,1,15,'lower'],['8.2.12','~Jul 2026',20,1,15,'lower'],['8.3.7','~Jul 2026',20,1,15,'lower'],['7.0.40','2026-08-11',20,1,12,'lower'],['8.0.29','2026-08-11',20,1,12,'lower'],['8.3.8','2026-08-11',20,1,12,'lower'],['8.3.9','2026-09-08',24,1,18,'approx'],['8.0.30','2026-09-08',24,1,18,'approx'],['7.0.41','2026-09-08',24,1,18,'approx']
+    ].map(([release,date,total,critical,high,bound])=>({release,date,total,critical,high,bound,year:+date.match(/\d{4}/)[0]}));
+    const svg = document.getElementById('densityChart');
+    const tooltip = document.getElementById('tooltip');
+    const ns = 'http://www.w3.org/2000/svg';
+    function el(name, attrs={}, text='') {
+      const n = document.createElementNS(ns, name);
+      Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));
+      if (text) n.textContent = text;
+      return n;
+    }
+    function valueLabel(value, bound) {
+      return bound === 'lower' ? `${value}+` : bound === 'approx' ? `≈${value}` : String(value);
+    }
+    function renderChart() {
+      svg.innerHTML='';
+      const compact=window.matchMedia('(max-width:600px)').matches;
+      const W=compact?760:1040,H=compact?500:440,m={t:68,r:20,b:62,l:48};
+      svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+      const plotW=W-m.l-m.r, plotH=H-m.t-m.b, ceiling=24;
+      const x=i=>m.l+(i/(releaseData.length-1))*plotW;
+      const y=v=>m.t+plotH-(v/ceiling)*plotH;
+      const rootStyle=getComputedStyle(document.documentElement);
+      const ink=rootStyle.getPropertyValue('--ink').trim();
+      const muted=rootStyle.getPropertyValue('--muted').trim();
+      const line=rootStyle.getPropertyValue('--line').trim();
+      const paper=rootStyle.getPropertyValue('--paper').trim();
+      const colors={total:rootStyle.getPropertyValue('--green').trim(),high:rootStyle.getPropertyValue('--red').trim(),critical:rootStyle.getPropertyValue('--amber').trim(),launch:rootStyle.getPropertyValue('--blue').trim()};
+      [0,6,12,18,24].forEach(v=>{
+        const yy=y(v);
+        svg.append(el('line',{x1:m.l,y1:yy,x2:W-m.r,y2:yy,stroke:line,'stroke-width':1,'vector-effect':'non-scaling-stroke'}));
+        svg.append(el('text',{x:m.l-10,y:yy+4,'text-anchor':'end',fill:muted,'font-size':11,'font-family':'IBM Plex Sans'},String(v)));
+      });
+      svg.append(el('text',{x:m.l,y:18,fill:muted,'font-size':10,'font-family':'IBM Plex Sans'},'CVEs in each branch patch release'));
+      const groups=[];
+      releaseData.forEach((d,i)=>{
+        const g=groups.find(item=>item.year===d.year);
+        if(g) g.end=i; else groups.push({year:d.year,start:i,end:i});
+      });
+      groups.forEach(g=>{
+        const gx=x((g.start+g.end)/2);
+        if(g.start>0) svg.append(el('line',{x1:x(g.start-.5),y1:m.t,x2:x(g.start-.5),y2:m.t+plotH,stroke:line,'stroke-width':1,'stroke-dasharray':'2 5','vector-effect':'non-scaling-stroke'}));
+        svg.append(el('text',{x:gx,y:H-31,'text-anchor':'middle',fill:muted,'font-size':11,'font-weight':600,'font-family':'IBM Plex Sans'},String(g.year)));
+      });
+      const launchIndex=releaseData.findIndex(d=>d.release==='8.2.7')-.5;
+      const launchX=x(launchIndex);
+      svg.append(el('line',{x1:launchX,y1:m.t-6,x2:launchX,y2:m.t+plotH,stroke:colors.launch,'stroke-width':1,'stroke-dasharray':'3 5','vector-effect':'non-scaling-stroke'}));
+      const launchLabel=el('text',{x:launchX-8,y:34,'text-anchor':'end',fill:colors.launch,'font-size':10,'font-weight':700,'font-family':'IBM Plex Sans'});
+      launchLabel.append(el('tspan',{x:launchX-8,dy:0},'Project Glasswing launch'));
+      launchLabel.append(el('tspan',{x:launchX-8,dy:13},'April 7, 2026'));
+      svg.append(launchLabel);
+      const defs=[{key:'total',name:'Total CVEs',width:1.5},{key:'high',name:'High',width:1.25},{key:'critical',name:'Critical',width:1.25}];
+      defs.forEach(def=>{
+        const path=releaseData.map((d,i)=>`${i?'L':'M'}${x(i).toFixed(2)},${y(d[def.key]).toFixed(2)}`).join(' ');
+        svg.append(el('path',{d:path,fill:'none',stroke:colors[def.key],'stroke-width':def.width,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));
+        releaseData.forEach((d,i)=>svg.append(el('circle',{cx:x(i),cy:y(d[def.key]),r:def.key==='total'?2.5:2,fill:colors[def.key],stroke:paper,'stroke-width':.9,'vector-effect':'non-scaling-stroke'})));
+      });
+      releaseData.forEach((d,i)=>{
+        const hit=el('line',{x1:x(i),y1:m.t,x2:x(i),y2:m.t+plotH,stroke:'transparent','stroke-width':Math.max(9,plotW/releaseData.length),tabindex:0,'aria-label':`${d.release}, ${d.date}: ${valueLabel(d.total,d.bound)} total CVEs, ${d.critical} Critical, ${valueLabel(d.high,d.bound)} High`});
+        const showTip=(ev)=>{
+          const dateNote=d.date.startsWith('~')?' · date approximate':'';
+          const countNote=d.bound==='lower'?' · lower-bound counts':d.bound==='approx'?' · approximate counts':'';
+          tooltip.innerHTML=`<b>MongoDB ${d.release}</b><br>${d.date}${dateNote}<br>${valueLabel(d.total,d.bound)} total · ${d.critical} Critical · ${valueLabel(d.high,d.bound)} High${countNote}`;
+          const p=ev.touches?ev.touches[0]:ev;
+          const left=Math.max(92,Math.min(window.innerWidth-92,p.clientX));
+          tooltip.style.left=`${left}px`; tooltip.style.top=`${Math.max(80,p.clientY)}px`; tooltip.style.opacity='1';
+        };
+        hit.addEventListener('mousemove',showTip); hit.addEventListener('touchstart',showTip,{passive:true});
+        hit.addEventListener('focus',ev=>{const b=ev.target.getBoundingClientRect();showTip({clientX:b.left+b.width/2,clientY:b.top});});
+        hit.addEventListener('mouseleave',()=>tooltip.style.opacity='0'); hit.addEventListener('blur',()=>tooltip.style.opacity='0');
+        svg.append(hit);
+      });
+      svg.append(el('text',{x:m.l,y:H-7,fill:muted,'font-size':10,'font-family':'IBM Plex Sans'},'Release order  •  each point is one branch patch  •  values marked + are lower bounds'));
+    }
+    renderChart();
+    const sections=[...document.querySelectorAll('main section[id]')];
+    const navLinks=[...document.querySelectorAll('.sticky-nav a')];
+    const observer=new IntersectionObserver(entries=>{
+      entries.filter(e=>e.isIntersecting).forEach(e=>navLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')===`#${e.target.id}`)));
+    },{rootMargin:'-20% 0px -68% 0px'});
+    sections.forEach(s=>observer.observe(s));
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',renderChart);
+    window.matchMedia('(max-width:600px)').addEventListener('change',renderChart);
+  </script>
+</body>
+</html>
